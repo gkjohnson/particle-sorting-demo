@@ -1,12 +1,7 @@
 # particle-sorting-demo
 
+Demo comparing sorting approaches including native Array.sort, three.js' Hybrid Radix sort, and a spatial-query-based sort using three-mesh-bvh. The BVH-based sort is performed by traversing the BVH depth first, furthest bounding node to closest and filling up the sorted buffer during traversal. The order between the two child bounds is determined by the side of the split plane the camera is on.
+
 **TODO**
 
-- Compare multiple sort strategies
-  - Array.sort
-  - Hybrid Radix Sort
-  - BVH Sort
-  - Parallel BVH Sort
-- 1 million transparent particles
-  - sorting index buffer
-- Use the side of the plane the camera is one to determine which to sort first, not look direction
+- Add parallel sort
