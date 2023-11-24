@@ -1,18 +1,21 @@
 
 import * as THREE from 'three';
+import { MeshBVH, AVERAGE, MeshBVHVisualizer } from 'three-mesh-bvh';
 
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { radixSort } from './SortUtils.js';
 
 const POINTS_COUNT = 500000;
+// const POINTS_COUNT = 1000000;
 const ARRAY_SORT = 0;
 const HYBRID_RADIX = 1;
-const SORT_OPTIONS = { ARRAY_SORT, HYBRID_RADIX };
+const BVH_SORT = 2;
+const SORT_OPTIONS = { ARRAY_SORT, HYBRID_RADIX, BVH_SORT };
 
 let gui, infoEl;
 let camera, controls, scene, renderer;
-let points, material;
+let points, material, bvh;
 let averageTime = 0, timeSamples = 0;
 
 const renderListArray = new Array( POINTS_COUNT ).fill().map( () => ( {} ) );
@@ -23,7 +26,7 @@ const _color = new THREE.Color();
 const params = {
     size: 0.25,
     opacity: 0.5,
-    sortMode: HYBRID_RADIX,
+    sortMode: BVH_SORT,
 };
 
 init();
@@ -44,6 +47,7 @@ function initMesh() {
     const posArr = new Float32Array( POINTS_COUNT * 3 );
     const colArr = new Uint8Array( POINTS_COUNT * 3 );
     const indexArr = new Uint32Array( POINTS_COUNT );
+    const bvhIndexArr = new Uint32Array( POINTS_COUNT * 3 );
     for ( let i = 0; i < POINTS_COUNT; i ++ ) {
 
         _vec.randomDirection().multiplyScalar( Math.cbrt( rand( 0, 1 ) ) * 40 );
@@ -58,6 +62,10 @@ function initMesh() {
         colArr[ 3 * i + 2 ] = _color.b * 255;
 
         indexArr[ i ] = i;
+
+        bvhIndexArr[ 3 * i + 0 ] = i;
+        bvhIndexArr[ 3 * i + 1 ] = i;
+        bvhIndexArr[ 3 * i + 2 ] = i;
 
     }
 
@@ -75,7 +83,20 @@ function initMesh() {
     } );
     points = new THREE.Points( geometry, material );
 
-    scene.add( points );
+    const bvhGeometry = new THREE.BufferGeometry();
+    bvhGeometry.setAttribute( 'position', new THREE.BufferAttribute( posArr, 3, false ) );
+    bvhGeometry.setIndex( new THREE.BufferAttribute( bvhIndexArr, 1, false ) );
+
+    bvh = new MeshBVH( bvhGeometry, { splitStrategy: AVERAGE, maxLeafTris: 1 } );
+
+    const bvhMesh = new THREE.Mesh();
+    bvhMesh.geometry.boundsTree = bvh;
+
+    const helper = new MeshBVHVisualizer( bvhMesh, 4 );
+    helper.update();
+    window.HELPER = helper;
+
+    scene.add( points, helper );
 
 }
 
@@ -197,6 +218,54 @@ function sortParticles() {
             indexAttr.setX( i, info.index );
 
         }
+        indexAttr.needsUpdate = true;
+
+    } else if ( params.sortMode === BVH_SORT ) {
+
+        // TODO: fix
+
+        const cameraPos = camera.position;
+        const indexAttr = points.geometry.index;
+        const bvhIndexAttr = bvh.geometry.index;
+        let currIndex = 0;
+        const xyzFields = [ 'x', 'y', 'z' ];
+        const forward = new THREE.Vector3( 0, 0, - 1 ).transformDirection( camera.matrixWorld );
+
+        bvh.shapecast( {
+
+            boundsTraverseOrder: ( box, splitAxis, isLeft ) => {
+
+                box.getCenter( forward ).applyMatrix4( camera.matrixWorldInverse );
+                return forward.z;
+
+
+                // box.getCenter( forward );
+                // return - forward.distanceTo( cameraPos );
+                
+
+
+                // return - box.distanceToPoint( cameraPos );
+
+
+
+                // box.getCenter( forward ).sub( cameraPos );
+                // const xyzAxis = xyzFields[ splitAxis ];
+                // const rayDir = forward[ xyzAxis ];
+                // const leftToRight = rayDir >= 0;
+
+                // return leftToRight !== isLeft ? 1 : - 1;
+                
+            },
+            intersectsBounds: () => true,
+            intersectsRange: tri => {
+
+                indexAttr.setX( currIndex, bvhIndexAttr.getX( tri * 3 ) );
+                currIndex ++;
+
+            },
+
+        } );
+
         indexAttr.needsUpdate = true;
 
     }
