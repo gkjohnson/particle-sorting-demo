@@ -1,18 +1,17 @@
 
 import * as THREE from 'three';
-import { MeshBVH, AVERAGE, MeshBVHVisualizer } from 'three-mesh-bvh';
+import { MeshBVH, CENTER } from 'three-mesh-bvh';
 
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { radixSort } from './SortUtils.js';
-import { SAH } from './three-mesh-bvh.module.js';
 
-const POINTS_COUNT = 500000;
-// const POINTS_COUNT = 1000000;
+const POINTS_COUNT = parseInt( window.location.hash.replace( /^#/, '' ) ) || 500000; 
+const NONE = - 1;
 const ARRAY_SORT = 0;
 const HYBRID_RADIX = 1;
 const BVH_SORT = 2;
-const SORT_OPTIONS = { ARRAY_SORT, HYBRID_RADIX, BVH_SORT };
+const SORT_OPTIONS = { NONE, ARRAY_SORT, HYBRID_RADIX, BVH_SORT };
 
 let gui, infoEl;
 let camera, controls, scene, renderer;
@@ -88,16 +87,12 @@ function initMesh() {
     bvhGeometry.setAttribute( 'position', new THREE.BufferAttribute( posArr, 3, false ) );
     bvhGeometry.setIndex( new THREE.BufferAttribute( bvhIndexArr, 1, false ) );
 
-    bvh = new MeshBVH( bvhGeometry, { splitStrategy: SAH, maxLeafTris: 1 } );
+    bvh = new MeshBVH( bvhGeometry, { splitStrategy: CENTER, maxLeafTris: 1 } );
 
     const bvhMesh = new THREE.Mesh();
     bvhMesh.geometry.boundsTree = bvh;
 
-    const helper = new MeshBVHVisualizer( bvhMesh, 4 );
-    helper.update();
-    window.HELPER = helper;
-
-    scene.add( points, helper );
+    scene.add( points );
 
 }
 
@@ -168,6 +163,12 @@ function init() {
 
     window.addEventListener( 'resize', onWindowResize );
 
+    window.addEventListener( 'hashchange', () => {
+
+        window.location.reload();
+
+    } );
+
 }
 
 //
@@ -223,39 +224,22 @@ function sortParticles() {
 
     } else if ( params.sortMode === BVH_SORT ) {
 
-        // TODO: fix
-
         const cameraPos = camera.position;
         const indexAttr = points.geometry.index;
         const bvhIndexAttr = bvh.geometry.index;
-        let currIndex = 0;
         const xyzFields = [ 'x', 'y', 'z' ];
-        const forward = new THREE.Vector3( 0, 0, - 1 ).transformDirection( camera.matrixWorld );
+        let currIndex = 0;
 
         bvh.shapecast( {
 
-            boundsTraverseOrder: ( box, splitAxis, isLeft ) => {
+            boundsTraverseOrder: ( box, splitAxis, isLeftNode ) => {
 
-                box.getCenter( forward ).applyMatrix4( camera.matrixWorldInverse );
-                return forward.z;
-
-
-                // box.getCenter( forward );
-                // return - forward.distanceTo( cameraPos );
-                
-
-
-                // return - box.distanceToPoint( cameraPos );
-
-
-
-                // box.getCenter( forward ).sub( cameraPos );
-                const xyzAxis = xyzFields[ splitAxis ];
-                const rayDir = forward[ xyzAxis ];
-                const leftToRight = rayDir >= 0;
-
-                return leftToRight === isLeft ? 1 : - 1;
-                
+                const field = xyzFields[ splitAxis ];
+                const cameraValue = cameraPos[ field ];
+                const planeValue = isLeftNode ? box.max[ field ] : box.min[ field ];
+                const isCameraOnLeft = cameraValue < planeValue;
+                return Number( isCameraOnLeft === isLeftNode );
+ 
             },
             intersectsBounds: () => true,
             intersectsRange: tri => {
@@ -302,7 +286,7 @@ function render() {
     sortParticles();
     const delta = window.performance.now() - start;
     averageTime += ( delta - averageTime ) / ( timeSamples + 1 );
-    if ( timeSamples < 60 ) {
+    if ( timeSamples < 120 ) {
         
         timeSamples ++;
 

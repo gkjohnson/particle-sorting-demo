@@ -1065,9 +1065,6 @@ function buildTree( bvh, options ) {
 			left.boundingData = new Float32Array( 6 );
 
 			getBounds( triangleBounds, lstart, lcount, left.boundingData, cacheCentroidBoundingData, parent );
-			left.boundingData.set( node.boundingData );
-			left.boundingData[ 3 + split.axis ] = split.pos;
-			// cacheCentroidBoundingData.set( left.boundingData );
 			splitNode( left, lstart, lcount, cacheCentroidBoundingData, depth + 1, node, split, true );
 
 			// repeat for right
@@ -1078,9 +1075,6 @@ function buildTree( bvh, options ) {
 			right.boundingData = new Float32Array( 6 );
 
 			getBounds( triangleBounds, rstart, rcount, right.boundingData, cacheCentroidBoundingData, parent );
-			right.boundingData.set( node.boundingData );
-			right.boundingData[ split.axis ] = split.pos;
-			// cacheCentroidBoundingData.set( right.boundingData );
 			splitNode( right, rstart, rcount, cacheCentroidBoundingData, depth + 1, node, split, false );
 
 		}
@@ -2660,7 +2654,7 @@ function shapecastTraverse(
 			box1 = _box1$1;
 			box2 = _box2$1;
 
-			// SPLIT
+			// NOTE: Added split axis and left / right to the callback
 			const split = SPLIT_AXIS( nodeIndex32, uint32Array );
 
 			// bounding data is not offset
