@@ -977,7 +977,7 @@ function buildTree( bvh, options ) {
 		root.boundingData = fullBounds;
 		getCentroidBounds( triangleBounds, range.offset, range.count, cacheCentroidBoundingData );
 
-		splitNode( root, range.offset, range.count, cacheCentroidBoundingData );
+		splitNode( root, range.offset, range.count, cacheCentroidBoundingData, 0, root );
 		roots.push( root );
 
 	} else {
@@ -986,9 +986,9 @@ function buildTree( bvh, options ) {
 
 			const root = new MeshBVHNode();
 			root.boundingData = new Float32Array( 6 );
-			getBounds( triangleBounds, range.offset, range.count, root.boundingData, cacheCentroidBoundingData );
+			getBounds( triangleBounds, range.offset, range.count, root.boundingData, cacheCentroidBoundingData, null );
 
-			splitNode( root, range.offset, range.count, cacheCentroidBoundingData );
+			splitNode( root, range.offset, range.count, cacheCentroidBoundingData, 0, root );
 			roots.push( root );
 
 		}
@@ -1009,7 +1009,7 @@ function buildTree( bvh, options ) {
 
 	// either recursively splits the given node, creating left and right subtrees for it, or makes it a leaf node,
 	// recording the offset and count of its triangles and writing them into the reordered geometry index.
-	function splitNode( node, offset, count, centroidBoundingData = null, depth = 0 ) {
+	function splitNode( node, offset, count, centroidBoundingData = null, depth = 0, parent = null ) {
 
 		if ( ! reachedMaxDepth && depth >= maxDepth ) {
 
@@ -1064,8 +1064,11 @@ function buildTree( bvh, options ) {
 			node.left = left;
 			left.boundingData = new Float32Array( 6 );
 
-			getBounds( triangleBounds, lstart, lcount, left.boundingData, cacheCentroidBoundingData );
-			splitNode( left, lstart, lcount, cacheCentroidBoundingData, depth + 1 );
+			getBounds( triangleBounds, lstart, lcount, left.boundingData, cacheCentroidBoundingData, parent );
+			left.boundingData.set( node.boundingData );
+			left.boundingData[ 3 + split.axis ] = split.pos;
+			// cacheCentroidBoundingData.set( left.boundingData );
+			splitNode( left, lstart, lcount, cacheCentroidBoundingData, depth + 1, node, split, true );
 
 			// repeat for right
 			const right = new MeshBVHNode();
@@ -1074,8 +1077,11 @@ function buildTree( bvh, options ) {
 			node.right = right;
 			right.boundingData = new Float32Array( 6 );
 
-			getBounds( triangleBounds, rstart, rcount, right.boundingData, cacheCentroidBoundingData );
-			splitNode( right, rstart, rcount, cacheCentroidBoundingData, depth + 1 );
+			getBounds( triangleBounds, rstart, rcount, right.boundingData, cacheCentroidBoundingData, parent );
+			right.boundingData.set( node.boundingData );
+			right.boundingData[ split.axis ] = split.pos;
+			// cacheCentroidBoundingData.set( right.boundingData );
+			splitNode( right, rstart, rcount, cacheCentroidBoundingData, depth + 1, node, split, false );
 
 		}
 
@@ -2654,15 +2660,15 @@ function shapecastTraverse(
 			box1 = _box1$1;
 			box2 = _box2$1;
 
-			const split1 = SPLIT_AXIS( c1, uint32Array );
-			const split2 = SPLIT_AXIS( c2, uint32Array );
+			// SPLIT
+			const split = SPLIT_AXIS( nodeIndex32, uint32Array );
 
 			// bounding data is not offset
 			arrayToBox( BOUNDING_DATA_INDEX( c1 ), float32Array, box1 );
 			arrayToBox( BOUNDING_DATA_INDEX( c2 ), float32Array, box2 );
 
-			score1 = nodeScoreFunc( box1, split1, true );
-			score2 = nodeScoreFunc( box2, split2, false );
+			score1 = nodeScoreFunc( box1, split, true );
+			score2 = nodeScoreFunc( box2, split, false );
 
 			if ( score2 < score1 ) {
 

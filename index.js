@@ -5,6 +5,7 @@ import { MeshBVH, AVERAGE, MeshBVHVisualizer } from 'three-mesh-bvh';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { radixSort } from './SortUtils.js';
+import { SAH } from './three-mesh-bvh.module.js';
 
 const POINTS_COUNT = 500000;
 // const POINTS_COUNT = 1000000;
@@ -87,7 +88,7 @@ function initMesh() {
     bvhGeometry.setAttribute( 'position', new THREE.BufferAttribute( posArr, 3, false ) );
     bvhGeometry.setIndex( new THREE.BufferAttribute( bvhIndexArr, 1, false ) );
 
-    bvh = new MeshBVH( bvhGeometry, { splitStrategy: AVERAGE, maxLeafTris: 1 } );
+    bvh = new MeshBVH( bvhGeometry, { splitStrategy: SAH, maxLeafTris: 1 } );
 
     const bvhMesh = new THREE.Mesh();
     bvhMesh.geometry.boundsTree = bvh;
@@ -249,11 +250,11 @@ function sortParticles() {
 
 
                 // box.getCenter( forward ).sub( cameraPos );
-                // const xyzAxis = xyzFields[ splitAxis ];
-                // const rayDir = forward[ xyzAxis ];
-                // const leftToRight = rayDir >= 0;
+                const xyzAxis = xyzFields[ splitAxis ];
+                const rayDir = forward[ xyzAxis ];
+                const leftToRight = rayDir >= 0;
 
-                // return leftToRight !== isLeft ? 1 : - 1;
+                return leftToRight === isLeft ? 1 : - 1;
                 
             },
             intersectsBounds: () => true,
