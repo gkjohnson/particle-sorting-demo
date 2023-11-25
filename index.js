@@ -16,15 +16,17 @@ const SORT_OPTIONS = { NONE, ARRAY_SORT, HYBRID_RADIX, BVH_SORT };
 let gui, infoEl;
 let camera, controls, scene, renderer;
 let points, material, bvh;
+let clock = new THREE.Clock();
 let averageTime = 0, timeSamples = 0;
 
 const renderListArray = new Array( POINTS_COUNT ).fill().map( () => ( {} ) );
 const auxArray = new Array( POINTS_COUNT );
 
+const _vec2 = new THREE.Vector2();
 const _vec = new THREE.Vector3();
 const _color = new THREE.Color();
 const params = {
-    size: 0.25,
+    size: 1,
     opacity: 0.5,
     sortMode: BVH_SORT,
 };
@@ -34,6 +36,48 @@ initMesh();
 animate();
 
 //
+
+function generateTexture() {
+
+    const size = 256;
+    const data = new Uint8Array( size * size * 4 );
+
+    for ( let x = 0; x < size; x ++ ) {
+
+        for ( let y = 0; y < size; y ++ ) {
+
+            _vec2.set( ( 2 * x / size ) - 1, ( 2 * y / size ) - 1 );
+
+            let dist = 1.0 - Math.min( _vec2.length(), 1 );
+            dist = dist > 0 ? 1 : 0;
+
+            const i = y * size + x;
+            data[ 4 * i + 0 ] = 255;
+            data[ 4 * i + 1 ] = 255;
+            data[ 4 * i + 2 ] = 255;
+            data[ 4 * i + 3 ] = dist * 255;
+
+        }
+
+    }
+
+    const tex = new THREE.DataTexture(
+        data,
+        size,
+        size,
+        THREE.RGBAFormat,
+        THREE.UnsignedByteType,
+        THREE.UVMapping,
+        THREE.ClampToEdgeWrapping,
+        THREE.ClampToEdgeWrapping,
+        THREE.LinearFilter,
+        THREE.LinearMipMapLinearFilter,
+    );
+    tex.generateMipmaps = true;
+    tex.needsUpdate = true;
+    return tex;
+
+}
 
 function rand( min, max ) {
 
@@ -79,7 +123,8 @@ function initMesh() {
         size: 1,
         transparent: true,
         opacity: 0.5,
-        depthWrite: false
+        depthWrite: false,
+        map: generateTexture(),
     } );
     points = new THREE.Points( geometry, material );
 
@@ -134,26 +179,14 @@ function init() {
 
     } );
 
-    gui.add( params, 'size', 0.05, 1, 0.05 ).onChange( v => {
+    gui.add( params, 'size', 0.05, 2, 0.05 ).onChange( v => {
 
         material.size = v;
 
     } );
     gui.add( params, 'opacity', 0, 1, 0.01 ).onChange( v => {
 
-        material.needsUpdate = true;
         material.opacity = v;
-        if ( v === 1 ) {
-
-            material.transparent = false;
-            material.depthWrite = true;
-
-        } else {
-
-            material.transparent = true;
-            material.depthWrite = false;
-
-        }
 
     } );
 
@@ -174,6 +207,8 @@ function init() {
 //
 
 function sortParticles() {
+
+    camera.updateMatrixWorld();
 
     if ( params.sortMode === ARRAY_SORT ) {
 
@@ -274,7 +309,7 @@ function animate() {
 
     requestAnimationFrame( animate );
     
-    controls.update();
+    controls.update( clock.getDelta() );
 
     render();
 
@@ -292,6 +327,8 @@ function render() {
 
     }
 
+    material.size = params.size;
+    material.opacity = params.opacity;
     renderer.render( scene, camera );
 
     infoEl.innerHTML = `points count  : ${ POINTS_COUNT }\n`;
