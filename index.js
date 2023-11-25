@@ -1,6 +1,6 @@
 
 import * as THREE from 'three';
-import { MeshBVH, CENTER } from 'three-mesh-bvh';
+import { MeshBVH, MeshBVHVisualizer, CENTER } from 'three-mesh-bvh';
 
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -15,7 +15,7 @@ const SORT_OPTIONS = { NONE, ARRAY_SORT, HYBRID_RADIX, BVH_SORT };
 
 let gui, infoEl;
 let camera, controls, scene, renderer;
-let points, material, bvh;
+let points, material, bvh, helper;
 let clock = new THREE.Clock();
 let averageTime = 0, timeSamples = 0;
 
@@ -29,6 +29,9 @@ const params = {
     size: 1,
     opacity: 0.5,
     sortMode: BVH_SORT,
+
+    helperDisplay: false,
+    helperDepth: 4,
 };
 
 init();
@@ -139,6 +142,13 @@ function initMesh() {
 
     scene.add( points );
 
+    const helperMesh = new THREE.Mesh();
+    helperMesh.geometry.boundsTree = bvh;
+    
+    helper = new MeshBVHVisualizer( helperMesh, params.helperDepth );
+    helper.update();
+    scene.add( helper );
+
 }
 
 function init() {
@@ -184,9 +194,19 @@ function init() {
         material.size = v;
 
     } );
+
     gui.add( params, 'opacity', 0, 1, 0.01 ).onChange( v => {
 
         material.opacity = v;
+
+    } );
+
+    gui.add( params, 'helperDisplay' );
+
+    gui.add( params, 'helperDepth', 1, 25, 1 ).onChange( v => {
+
+        helper.depth = v;
+        helper.update();
 
     } );
 
@@ -316,6 +336,8 @@ function animate() {
 }
 
 function render() {
+
+    helper.visible = params.helperDisplay;
 
     const start = window.performance.now();
     sortParticles();
