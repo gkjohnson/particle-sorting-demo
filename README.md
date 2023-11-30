@@ -9,3 +9,4 @@ Demo [here](https://gkjohnson.github.io/particle-sorting-demo/).
 **TODO**
 
 - Add parallel sort
+- Frustum culling support
